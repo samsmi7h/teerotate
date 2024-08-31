@@ -2,7 +2,6 @@
 Rotate your log files, within your Go app. No need for external crons. Easy to test & monitor.
 
 ## Roadmap
-* Differentiate names of live vs closed files
 * Add post-rotation hooks: e.g. upload to S3
 
 # How to Use
@@ -30,3 +29,9 @@ go func() {
 	fmt.Println("finished")
 }()
 ```
+
+## Log files
+While they are being written log files have the form: `2024-08-31T15:50:16.log.live`.
+
+After they have been rotated the log files have the `.live` prefix removed: `2024-08-31T15:50:16.log`.
+

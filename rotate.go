@@ -36,6 +36,7 @@ func (r *RotatingLogger) startPrinter() {
 			r.Rotate()
 		}
 	}
+
 	fmt.Println("closing current logger...")
 	r.currentLogger.Close()
 	fmt.Println("current logger closed.")

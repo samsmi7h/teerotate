@@ -42,6 +42,7 @@ func TestRotate(t *testing.T) {
 	done <- time.Now()
 	l.Print("hallo")
 	l.Print("world")
+	l.Close()
 
 	assert.Equal(t, len(buffers), 2)
 
@@ -49,5 +50,4 @@ func TestRotate(t *testing.T) {
 	secondBuf, _ := io.ReadAll(buffers[1])
 	b := append(firstBuf, secondBuf...)
 	assert.Equal(t, "hellohalloworld", string(b))
-
 }
