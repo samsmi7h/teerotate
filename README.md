@@ -35,3 +35,16 @@ While they are being written log files have the form: `2024-08-31T15:50:16.log.l
 
 After they have been rotated the log files have the `.live` prefix removed: `2024-08-31T15:50:16.log`.
 
+
+## Post-Rotation Hooks
+Once you've rotated out a log file, you probably want to do something with it.
+
+Rather than needing to setup a cron job to do this work, you can provide a hook to do it.
+
+All hooks run in the background.
+
+**Important**: Hooks should be added BEFORE any logs are sent. Otherwise, behaviour is undefined.
+
+```go
+logger.WithPostRotationHook(func() {....})
+```

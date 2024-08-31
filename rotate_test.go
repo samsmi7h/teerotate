@@ -38,6 +38,11 @@ func TestRotate(t *testing.T) {
 		},
 	)
 
+	hookCh := make(chan struct{}, 1)
+	l.WithPostRotationHook(func() {
+		hookCh <- struct{}{}
+	})
+
 	l.Print("hello")
 	done <- time.Now()
 	l.Print("hallo")
@@ -50,4 +55,15 @@ func TestRotate(t *testing.T) {
 	secondBuf, _ := io.ReadAll(buffers[1])
 	b := append(firstBuf, secondBuf...)
 	assert.Equal(t, "hellohalloworld", string(b))
+
+	assert.True(t, wasChanWrittenTo(hookCh))
+}
+
+func wasChanWrittenTo[T any](ch chan T) bool {
+	select {
+	case <-ch:
+		return true
+	default:
+		return false
+	}
 }

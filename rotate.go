@@ -6,14 +6,13 @@ import (
 	"time"
 )
 
-// TODO: post rotate hook e.g. S3 upload
-// TODO: could even pass in your own logger
-
 type RotatingLogger struct {
 	newOuput  makeNewOutput
 	newTicker makeNewTicker
-	ch        chan []byte
-	done      chan struct{}
+
+	printCh chan []byte
+	doneCh  chan struct{}
+	hooks   hooks
 
 	currentLogger *tmpLogWriter
 }
@@ -24,13 +23,13 @@ type RotatingLogger struct {
 // Then prints to stdout
 func (r *RotatingLogger) Print(msg string, args ...interface{}) {
 	s := fmt.Sprintf(msg, args...)
-	r.ch <- []byte(s)
+	r.printCh <- []byte(s)
 	fmt.Fprint(os.Stdout, s)
 }
 
 // worker that writes logs
 func (r *RotatingLogger) startPrinter() {
-	for b := range r.ch {
+	for b := range r.printCh {
 		done := r.currentLogger.Write(b)
 		if done {
 			r.Rotate()
@@ -40,7 +39,7 @@ func (r *RotatingLogger) startPrinter() {
 	fmt.Println("closing current logger...")
 	r.currentLogger.Close()
 	fmt.Println("current logger closed.")
-	r.done <- struct{}{}
+	r.doneCh <- struct{}{}
 }
 
 func (r *RotatingLogger) Rotate() {
@@ -54,15 +53,19 @@ func (r *RotatingLogger) Rotate() {
 
 	r.currentLogger = newLogger
 
-	// nil at start
+	// is nil at start
 	if oldLogger != nil {
 		oldLogger.Close()
+
+		if r.hooks.postRotation != nil {
+			go r.hooks.postRotation()
+		}
 	}
 }
 
 func (r *RotatingLogger) Close() {
-	close(r.ch)
-	<-r.done
+	close(r.printCh)
+	<-r.doneCh
 }
 
 func NewRotatingFileLogger(dir string, lifespan time.Duration) *RotatingLogger {
@@ -77,8 +80,8 @@ func newRotatingLogger(no makeNewOutput, nt makeNewTicker) *RotatingLogger {
 	r := RotatingLogger{
 		newOuput:  no,
 		newTicker: nt,
-		ch:        make(chan []byte, 1000),
-		done:      make(chan struct{}, 1),
+		printCh:   make(chan []byte, 1000),
+		doneCh:    make(chan struct{}, 1),
 	}
 
 	r.Rotate()
