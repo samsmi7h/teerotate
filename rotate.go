@@ -13,6 +13,7 @@ type RotatingLogger struct {
 	newOuput  makeNewOutput
 	newTicker makeNewTicker
 	ch        chan []byte
+	done      chan struct{}
 
 	currentLogger *tmpLogWriter
 }
@@ -35,6 +36,10 @@ func (r *RotatingLogger) startPrinter() {
 			r.Rotate()
 		}
 	}
+	fmt.Println("closing current logger...")
+	r.currentLogger.Close()
+	fmt.Println("current logger closed.")
+	r.done <- struct{}{}
 }
 
 func (r *RotatingLogger) Rotate() {
@@ -54,6 +59,11 @@ func (r *RotatingLogger) Rotate() {
 	}
 }
 
+func (r *RotatingLogger) Close() {
+	close(r.ch)
+	<-r.done
+}
+
 func NewRotatingFileLogger(dir string, lifespan time.Duration) *RotatingLogger {
 	return newRotatingLogger(
 		fileFactory(dir),
@@ -67,6 +77,7 @@ func newRotatingLogger(no makeNewOutput, nt makeNewTicker) *RotatingLogger {
 		newOuput:  no,
 		newTicker: nt,
 		ch:        make(chan []byte, 1000),
+		done:      make(chan struct{}, 1),
 	}
 
 	r.Rotate()
