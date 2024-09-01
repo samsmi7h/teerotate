@@ -66,6 +66,11 @@ func (r *RotatingLogger) Rotate() {
 func (r *RotatingLogger) Close() {
 	close(r.printCh)
 	<-r.doneCh
+
+	if r.hooks.postRotation != nil {
+		// TODO: test this
+		r.hooks.postRotation()
+	}
 }
 
 func NewRotatingFileLogger(dir string, lifespan time.Duration) *RotatingLogger {
