@@ -51,8 +51,6 @@ func (r *RotatingLogger) Rotate() {
 	oldLogger := r.currentLogger
 	r.currentLogger = newLogger
 
-	r.currentLogger = newLogger
-
 	// is nil at start
 	if oldLogger != nil {
 		oldLogger.Close()
