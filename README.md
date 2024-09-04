@@ -2,14 +2,23 @@
 Rotate your log files, within your Go app. No need for external crons. Easy to test & monitor.
 
 ## Roadmap
-* Rotate condition includes min size
 * Handle situation where underlying file has been (re)moved
 
 # How to Use
 ```go
-logger := teerotate.NewRotatingFileLogger("/path/to/dir/", time.Hour)
+opts := teerotate.Opts{
+	MinimumLifespan: time.Minute * 15,
+	MaximumLifespan: time.Hour,
+	MinimumByteSize: teerotate.Megabyte,
+}
+
+l := teerotate.NewRotatingFileLogger("/tmp", time.Hour)
 logger.Print("my first log at: %s", time.Now())
 ```
+
+Logs will rotate when either:
+* MinimumLifespan && MinimumByteSize are both reached
+* MaximumLifespan is reached
 
 ## Graceful shutdown
 **Important** -- To avoid losing logs when you shutdown, make sure you wait for `logger.Close()` to complete.
@@ -20,6 +29,12 @@ Example for handling interrupts:
 ```go
 sigChan := make(chan os.Signal, 1)
 signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
+
+opts := teerotate.Opts{
+	MinimumLifespan: time.Minute * 15,
+	MaximumLifespan: time.Hour,
+	MinimumByteSize: teerotate.Megabyte,
+}
 
 l := teerotate.NewRotatingFileLogger("/tmp", time.Hour)
 
