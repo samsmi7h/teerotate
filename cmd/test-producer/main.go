@@ -14,7 +14,7 @@ func main() {
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
 
-	l := teerotate.NewRotatingFileLogger("/tmp", time.Hour)
+	l := teerotate.NewRotatingFileLogger("/tmp", teerotate.Opts{MinimumLifespan: time.Hour})
 
 	for {
 		select {

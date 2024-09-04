@@ -10,32 +10,45 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-type closerWrapper struct {
+type closeSizeWrapper struct {
 	io.ReadWriter
 	closed bool
 }
 
-func (c *closerWrapper) Close() error {
+func (c *closeSizeWrapper) Close() error {
 	c.closed = true
 	return nil
 }
 
-func closer(rw io.ReadWriter) *closerWrapper {
-	return &closerWrapper{ReadWriter: rw}
+func (c *closeSizeWrapper) SizeInBytes() ByteSize {
+	return 0
+}
+
+func closer(rw io.ReadWriter) *closeSizeWrapper {
+	return &closeSizeWrapper{ReadWriter: rw}
 }
 
 func TestRotate(t *testing.T) {
 	buffers := []*bytes.Buffer{}
-	done := make(chan time.Time)
+
+	// use a chan as a read-once bool here
+	rotateSig := make(chan struct{})
 
 	l := newRotatingLogger(
-		func() io.WriteCloser {
+		func() WriteCloseSizer {
 			buf := bytes.NewBuffer([]byte{})
 			buffers = append(buffers, buf)
 			return closer(buf)
 		},
-		func() <-chan time.Time {
-			return done
+		func() rotateConditionCheck {
+			return func(_ Sizer) bool {
+				select {
+				case <-rotateSig:
+					return true
+				default:
+					return false
+				}
+			}
 		},
 		bytes.NewBuffer([]byte{}),
 	)
@@ -46,7 +59,7 @@ func TestRotate(t *testing.T) {
 	})
 
 	l.Print("hello\n")
-	done <- time.Now()
+	rotateSig <- struct{}{}
 
 	// hook should fire at rotate
 	assert.True(t, wasChanWrittenTo(hookCh))
@@ -76,19 +89,19 @@ func wasChanWrittenTo[T any](ch chan T) bool {
 }
 
 type writerWithDelay struct {
-	io.WriteCloser
+	WriteCloseSizer
 	delay time.Duration
 }
 
 func (w writerWithDelay) Write(p []byte) (n int, err error) {
 	time.Sleep(w.delay)
-	return w.WriteCloser.Write(p)
+	return w.WriteCloseSizer.Write(p)
 }
 
-func newWriterWithDelay(w io.WriteCloser, t time.Duration) writerWithDelay {
+func newWriterWithDelay(w WriteCloseSizer, t time.Duration) writerWithDelay {
 	return writerWithDelay{
-		WriteCloser: w,
-		delay:       t,
+		WriteCloseSizer: w,
+		delay:           t,
 	}
 }
 
@@ -132,14 +145,16 @@ func TestCloseGetsAllLogs(t *testing.T) {
 	for _, tc := range tcs {
 		output := bytes.NewBuffer([]byte{})
 		l := newRotatingLogger(
-			func() io.WriteCloser {
+			func() WriteCloseSizer {
 				// use delay to create channel baclklog
 				// this will demonstrate how Close() is required to drain
 				return newWriterWithDelay(closer(output), time.Microsecond)
 			},
-			func() <-chan time.Time {
+			func() rotateConditionCheck {
 				// unused
-				return time.Timer{}.C
+				return func(_ Sizer) bool {
+					return false
+				}
 			},
 			bytes.NewBuffer([]byte{}),
 		)

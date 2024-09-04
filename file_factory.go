@@ -8,20 +8,21 @@ import (
 	"time"
 )
 
-type makeNewTicker func() <-chan time.Time
-
-func tickerFactory(lifespan time.Duration) makeNewTicker {
-	return func() <-chan time.Time {
-		return time.NewTicker(lifespan).C
-	}
-}
-
-type makeNewOutput func() io.WriteCloser
+type makeNewOutput func() WriteCloseSizer
 
 const dateFmt = "2006-01-02T15:04:05"
 
+type Sizer interface {
+	SizeInBytes() ByteSize
+}
+
+type WriteCloseSizer interface {
+	io.WriteCloser
+	Sizer
+}
+
 func fileFactory(dir string) makeNewOutput {
-	return func() io.WriteCloser {
+	return func() WriteCloseSizer {
 		t := time.Now().Format(dateFmt)
 		closedFileName := fmt.Sprintf("%s.log", t)
 		closedPath := path.Join(dir, closedFileName)
@@ -54,4 +55,17 @@ func (r *renameOnCloseFile) Close() error {
 	}
 
 	return nil
+}
+
+func (r *renameOnCloseFile) SizeInBytes() ByteSize {
+	s, err := r.File.Stat()
+	if err != nil {
+		return 0
+	}
+
+	if s == nil {
+		return 0
+	}
+
+	return ByteSize(s.Size())
 }
