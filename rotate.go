@@ -2,6 +2,7 @@ package teerotate
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"time"
 )
@@ -15,6 +16,7 @@ type RotatingLogger struct {
 	hooks   hooks
 
 	currentLogger *tmpLogWriter
+	stdout        io.Writer
 }
 
 // Print is the method exposed for printing a log.
@@ -24,7 +26,7 @@ type RotatingLogger struct {
 func (r *RotatingLogger) Print(msg string, args ...interface{}) {
 	s := fmt.Sprintf(msg, args...)
 	r.printCh <- []byte(s)
-	fmt.Fprint(os.Stdout, s)
+	fmt.Fprint(r.stdout, s)
 }
 
 // worker that writes logs
@@ -36,9 +38,7 @@ func (r *RotatingLogger) startPrinter() {
 		}
 	}
 
-	fmt.Println("closing current logger...")
 	r.currentLogger.Close()
-	fmt.Println("current logger closed.")
 	r.doneCh <- struct{}{}
 }
 
@@ -68,7 +68,6 @@ func (r *RotatingLogger) Close() {
 	<-r.doneCh
 
 	if r.hooks.postRotation != nil {
-		// TODO: test this
 		r.hooks.postRotation()
 	}
 }
@@ -77,16 +76,18 @@ func NewRotatingFileLogger(dir string, lifespan time.Duration) *RotatingLogger {
 	return newRotatingLogger(
 		fileFactory(dir),
 		tickerFactory(lifespan),
+		os.Stdout,
 	)
 }
 
 // newRotatingLogger is lower level and testable
-func newRotatingLogger(no makeNewOutput, nt makeNewTicker) *RotatingLogger {
+func newRotatingLogger(no makeNewOutput, nt makeNewTicker, stdout io.Writer) *RotatingLogger {
 	r := RotatingLogger{
 		newOuput:  no,
 		newTicker: nt,
 		printCh:   make(chan []byte, 1000),
 		doneCh:    make(chan struct{}, 1),
+		stdout:    stdout,
 	}
 
 	r.Rotate()

@@ -2,7 +2,8 @@
 Rotate your log files, within your Go app. No need for external crons. Easy to test & monitor.
 
 ## Roadmap
-* Add post-rotation hooks: e.g. upload to S3
+* Rotate condition includes min size
+* Handle situation where underlying file has been (re)moved
 
 # How to Use
 ```go
