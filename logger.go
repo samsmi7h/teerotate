@@ -2,33 +2,25 @@ package teerotate
 
 import (
 	"io"
-	"time"
 )
 
 // tmpLogWriter is short lived & immutable
 // it corresponds to a log file
 // and is rotated out
 type tmpLogWriter struct {
-	w      io.WriteCloser
-	ticker <-chan time.Time
+	w                    io.WriteCloser
+	rotateConditionCheck rotateConditionCheck
 }
 
-func newTmpLogger(w io.WriteCloser, t <-chan time.Time) *tmpLogWriter {
+func newTmpLogger(w io.WriteCloser, rotateConditionCheck rotateConditionCheck) *tmpLogWriter {
 	return &tmpLogWriter{
-		w:      w,
-		ticker: t,
+		w:                    w,
+		rotateConditionCheck: rotateConditionCheck,
 	}
 }
 
 func (l tmpLogWriter) isDone() bool {
-	select {
-	case <-l.ticker:
-		return true
-	default:
-		// continue
-	}
-
-	return false
+	return l.rotateConditionCheck()
 }
 
 func (l tmpLogWriter) Write(b []byte) (done bool) {

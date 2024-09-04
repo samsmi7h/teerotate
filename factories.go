@@ -8,11 +8,15 @@ import (
 	"time"
 )
 
-type makeNewTicker func() <-chan time.Time
+type makeRotateConditionCheck func() rotateConditionCheck
+type rotateConditionCheck func() (done bool)
 
-func tickerFactory(lifespan time.Duration) makeNewTicker {
-	return func() <-chan time.Time {
-		return time.NewTicker(lifespan).C
+func rotateConditionFactory(lifespan time.Duration) makeRotateConditionCheck {
+	return func() rotateConditionCheck {
+		end := time.Now().Add(lifespan)
+		return func() bool {
+			return time.Now().After(end)
+		}
 	}
 }
 

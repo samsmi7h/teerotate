@@ -26,7 +26,9 @@ func closer(rw io.ReadWriter) *closerWrapper {
 
 func TestRotate(t *testing.T) {
 	buffers := []*bytes.Buffer{}
-	done := make(chan time.Time)
+
+	// use a chan as a read-once bool here
+	rotateSig := make(chan struct{})
 
 	l := newRotatingLogger(
 		func() io.WriteCloser {
@@ -34,8 +36,15 @@ func TestRotate(t *testing.T) {
 			buffers = append(buffers, buf)
 			return closer(buf)
 		},
-		func() <-chan time.Time {
-			return done
+		func() rotateConditionCheck {
+			return func() bool {
+				select {
+				case <-rotateSig:
+					return true
+				default:
+					return false
+				}
+			}
 		},
 		bytes.NewBuffer([]byte{}),
 	)
@@ -46,7 +55,7 @@ func TestRotate(t *testing.T) {
 	})
 
 	l.Print("hello\n")
-	done <- time.Now()
+	rotateSig <- struct{}{}
 
 	// hook should fire at rotate
 	assert.True(t, wasChanWrittenTo(hookCh))
@@ -137,9 +146,11 @@ func TestCloseGetsAllLogs(t *testing.T) {
 				// this will demonstrate how Close() is required to drain
 				return newWriterWithDelay(closer(output), time.Microsecond)
 			},
-			func() <-chan time.Time {
+			func() rotateConditionCheck {
 				// unused
-				return time.Timer{}.C
+				return func() bool {
+					return false
+				}
 			},
 			bytes.NewBuffer([]byte{}),
 		)

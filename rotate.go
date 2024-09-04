@@ -9,7 +9,7 @@ import (
 
 type RotatingLogger struct {
 	newOuput  makeNewOutput
-	newTicker makeNewTicker
+	newTicker makeRotateConditionCheck
 
 	printCh chan []byte
 	doneCh  chan struct{}
@@ -73,13 +73,13 @@ func (r *RotatingLogger) Close() {
 func NewRotatingFileLogger(dir string, lifespan time.Duration) *RotatingLogger {
 	return newRotatingLogger(
 		fileFactory(dir),
-		tickerFactory(lifespan),
+		rotateConditionFactory(lifespan),
 		os.Stdout,
 	)
 }
 
 // newRotatingLogger is lower level and testable
-func newRotatingLogger(no makeNewOutput, nt makeNewTicker, stdout io.Writer) *RotatingLogger {
+func newRotatingLogger(no makeNewOutput, nt makeRotateConditionCheck, stdout io.Writer) *RotatingLogger {
 	r := RotatingLogger{
 		newOuput:  no,
 		newTicker: nt,
