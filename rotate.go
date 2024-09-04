@@ -70,10 +70,15 @@ func (r *RotatingLogger) Close() {
 	}
 }
 
-func NewRotatingFileLogger(dir string, lifespan time.Duration) *RotatingLogger {
+type Opts struct {
+	MinimumLifespan, MaximumLifespan time.Duration
+	MinimumByteSize                  ByteSize
+}
+
+func NewRotatingFileLogger(dir string, opts Opts) *RotatingLogger {
 	return newRotatingLogger(
 		fileFactory(dir),
-		rotateConditionFactory(lifespan),
+		rotateConditionFactory(opts),
 		os.Stdout,
 	)
 }
